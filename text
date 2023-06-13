@@ -1,0 +1,6 @@
+app.get('/classes/:id', async (req, res) => {
+            id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            result = await classCollection.findOne(filter);
+            res.send(result);
+        })
