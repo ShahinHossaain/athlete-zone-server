@@ -1,6 +1,32 @@
-app.get('/classes/:id', async (req, res) => {
-            id = req.params.id;
-            const filter = { _id: new ObjectId(id) };
-            result = await classCollection.findOne(filter);
-            res.send(result);
-        })
+app.patch('/classEnroll/:id', async (req, res) => {
+            const id = req.params.id;
+            const email = req.query.email;
+
+            try {
+                // Find the user document based on the email
+                const user = await usersCollection.findOne({ email: email });
+
+                // Update the selectedClasses array element with the specified ID
+                user.selectedClasses.forEach(classObj => {
+                    const classId = Object.keys(classObj)[0];
+                    if (classId === id) {
+                        classObj[classId] = 1;
+                    }
+                });
+
+                // Save the updated user document
+                await usersCollection.updateOne({ email: email }, { $set: { selectedClasses: user.selectedClasses } });
+
+                // const classItem = await classCollection.findOne({ id: new ObjectId(id) });
+                // console.log(cla);
+
+                // update enroll here 
+                
+                // Send a response indicating the enrollment is successful
+                res.status(200).json({ message: 'Enrollment successful' });
+            } catch (error) {
+                console.error(error);
+                // Send an error response
+                res.status(500).json({ message: 'Enrollment failed' });
+            }
+        });

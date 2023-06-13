@@ -215,8 +215,18 @@ async function run() {
                 // Save the updated user document
                 await usersCollection.updateOne({ email: email }, { $set: { selectedClasses: user.selectedClasses } });
 
-                // Your code to handle the enrollment logic goes here
+                // const classItem = await classCollection.findOne({ id: new ObjectId(id) });
+                // console.log(cla);
 
+                const result = await classCollection.findOne({ _id: new ObjectId(id) }, { projection: { enrolled: 1, _id: 0 } });
+                console.log('NNNNNNNNNNNNNNNNNN', result.enrolled);
+
+                const updateDoc = {
+                    $set: {
+                        enrolled: ++result.enrolled
+                    }
+                }
+                const updateEnroll = await classCollection.updateOne({ _id: new ObjectId(id) }, updateDoc);
                 // Send a response indicating the enrollment is successful
                 res.status(200).json({ message: 'Enrollment successful' });
             } catch (error) {
@@ -225,6 +235,8 @@ async function run() {
                 res.status(500).json({ message: 'Enrollment failed' });
             }
         });
+
+
 
 
 
@@ -242,7 +254,6 @@ async function run() {
             res.send(result);
         })
 
-        let c = 0;
 
         app.get('/classes/:id', async (req, res) => {
             const isEnabled = req.query.isEnabled;
@@ -253,7 +264,6 @@ async function run() {
 
 
             const user = await usersCollection.findOne({ email: email });
-            console.log(user.selectedClasses, 'id', id, 'c', ++c);
 
             const matchingClass = user.selectedClasses.find((selectedClass) => {
 
@@ -262,7 +272,6 @@ async function run() {
                 console.log(classId, value);
                 console.log(typeof value, typeof isEnabled);
                 if (classId === id && value === parseInt(isEnabled)) {
-                    console.log('kattu', classId, 'id', id, value);
 
                     return classId
                 }
@@ -316,26 +325,34 @@ async function run() {
 
 
         app.get('/classes', async (req, res) => {
-            // const decodedEmail = req.decoded?.email;
-            // // console.log('decodedEmail', decodedEmail, req.query.email);
-            // if (req?.query?.email) {
-            //     if (decodedEmail !== req.query?.email) return res.status(403).send({ error: true, message: "Forbidden access" });
-            // }
-            let query = {};
-            if (req.query?.email) {
-                query = { instructorEmail: req.query.email }
+
+            if (req.query?.fromManageClasses) {
+                const cursor = classCollection.find();
+                const result = await cursor.toArray();
+                res.send(result);
+            }
+            else {
+                let query = { status: 'approve' };
+                if (req.query?.email) {
+                    query = { instructorEmail: req.query.email, status: 'approve' }
+                }
+
+                const count = await classCollection.countDocuments();
+
+                let options = { limit: count }
+                if (req.query?.limit) {
+                    options = { limit: parseInt(req.query.limit) }
+                }
+
+
+                const cursor = classCollection.find(query, options);
+                const result = await cursor.toArray();
+                res.send(result);
             }
 
-            const count = await classCollection.countDocuments();
-
-            let options = { limit: count }
-            if (req.query?.limit) {
-                options = { limit: parseInt(req.query.limit) }
-            }
-            const cursor = classCollection.find(query, options);
-            const result = await cursor.toArray();
-            res.send(result);
         })
+
+
 
         app.get('/feedback/:id', userVerify, async (req, res) => {
             const decodedEmail = req.decoded?.email;
@@ -375,15 +392,33 @@ async function run() {
                 const id = req.params.id;
                 const filter = { _id: new ObjectId(id) };
                 const data = req.body;
-                console.log(data);
-
+                console.log('dataaa', data);
+                let updateDoc;
+                if (data.status === 'approve') {
+                    updateDoc = {
+                        $set: {
+                            enrolled: 0,
+                            status: data.status,
+                        }
+                    };
+                }
+                else if (!data.status) {
+                    updateDoc = { $set: data };
+                }
+                else {
+                    updateDoc = {
+                        $set: {
+                            status: data.status,
+                        }
+                    };
+                }
                 const options = { upsert: true };
-                const updateDoc = { $set: {} };
+                // const updateDoc = { $set: {} };
 
                 // Iterate over the keys in the data object and add them to the updateDoc dynamically
-                for (const key in data) {
-                    updateDoc.$set[key] = data[key];
-                }
+                // for (const key in data) {
+                //     updateDoc.$set[key] = data[key];
+                // }
 
                 const result = await classCollection.updateOne(filter, updateDoc, options);
                 console.log(result);
